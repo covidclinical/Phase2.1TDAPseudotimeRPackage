@@ -1,13 +1,22 @@
-Package: FourCePhase2.1TDAPseudotime
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
-Authors@R: 
-    person(given = "First",
-           family = "Last",
-           role = c("aut", "cre"),
-           email = "first.last@example.com",
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: What license it uses
+Package: tdapseudotime
+Type: Package
+Title: Temporal Phenotyping via Topological Data Analysis and Pseudo Time
+Version: 0.1.0
+Authors@R: c(
+    person("Arianna", "Dagliati", email = "arianna.dagliati@unipv.it", role = c("aut", "cre"), comment = "https://trang.page/"),
+    person("Trang", "Le", email = "grixor@gmail.com", role = "aut", comment = "https://trang.page/"))
+Description: This package contains functions to run the temporal phenotyping via topological data analysis.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
+RoxygenNote: 7.1.0
+Depends:
+  R (>= 3.5.0),
+  TDAmapper,
+  igraph
+Imports:
+  dplyr,
+  RColorBrewer,
+  stringdist,
+  grDevices,
+  tidyr

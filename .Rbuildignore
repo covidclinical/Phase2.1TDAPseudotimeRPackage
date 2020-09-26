@@ -1,0 +1,6 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^readme\.Rmd$
+^readme\.md$
+^MyDataSim\.csv$
+^LICENSE\.md$

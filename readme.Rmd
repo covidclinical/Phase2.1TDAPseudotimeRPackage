@@ -1,15 +1,21 @@
-An example workflow of package tdapseudotime
-================
+---
+title: "An example workflow of package tdapseudotime"
+output: rmarkdown::github_document
+---
 
-You can install the development version of tdapseudotime from GitHub
-with remotes:
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  fig.path = "man/figures/"
+)
+```
 
-``` r
+You can install the development version of tdapseudotime from GitHub with remotes:
+```{r, eval=FALSE}
 # install.packages('remotes') # uncomment to install devtools
 remotes::install_github('trang1618/tdapseudotime')
 ```
 
-``` r
+```{r setup, message=FALSE, warning=FALSE}
 library(tdapseudotime)
 library(mice)
 library(dplyr)
@@ -19,11 +25,19 @@ library(ggplot2)
 set.seed(1234)
 ```
 
+```{r echo=FALSE}
+theme_set(
+  theme_bw() + 
+    theme(
+      panel.grid.minor = element_blank(),
+      legend.title = element_blank()
+    ))
+```
+
 ## Preprocess
 
 Parameters:
-
-``` r
+```{r}
 my_file <- 'MyDataSim.csv'
 
 # TDA hyperparameter grid
@@ -38,24 +52,24 @@ percent_overlap <- overlaps_seq[p]
 num_bins_when_clustering <- clust_bins[b]
 ```
 
-Color palette for enrichment: blue \> green \> yellow \> orange \> red
-
-``` r
+Color palette for enrichment: blue > green > yellow > orange > red
+```{r}
 # RColorBrewer::brewer.pal(length(unique(CommunityCluster$membership)), "Set1")
 my_colors <- c("#00A3DD", "#60C659", "#FFBC21", "#FF7F1E", "#EF2B2D")
 ```
 
 ## Read in data file
+Create a time line for each subject (being time zero the first observation).
+Extract lab values to be used for TDA distance matrix.
 
-Create a time line for each subject (being time zero the first
-observation). Extract lab values to be used for TDA distance matrix.
-
-Check format: - first col \> row id “id” (can be any value, i.e. unique
-row number) - second col \> pts id “covid\_id” - third col \> date “day”
+Check format:
+- first col > row id "id" (can be any value, i.e. unique row number)
+- second col > pts id "covid_id"
+- third col > date "day"
 
 *Need to check whether rowid is important*
 
-``` r
+```{r}
 FupData <- read.csv(my_file, header = TRUE, colClasses = "character")
 non_lab_value_names <- c('id', 'covid_id', 'day')
 lab_value_names <- setdiff(names(FupData), non_lab_value_names)
@@ -72,18 +86,29 @@ processed_data <- FupData %>%
   mutate_at(dplyr::all_of(lab_value_names), as.numeric)
 ```
 
-``` r
+```{r warning=FALSE, results='hide', message=FALSE}
 lab_values_mat <- processed_data[, lab_value_names] %>% 
   mice::mice(m = 5, maxit = 50, meth = 'pmm', seed = 500) %>% # imputation
   complete(1) %>% 
   scale() # prepare for cosine similarity calculation
 ```
 
-## Preparing for running TDA Mapper
+```{r include=FALSE}
+# check:
+# > sum(processed_data$first_date != FupData$FirstDate)
+# [1] 0
+# > sum(processed_data$time != FupData$time)
+# [1] 0
+# > sum(diff(as.numeric(processed_data$id))!=1)
+# [1] 0
+# > sum(diff(as.numeric(FupData$id))!=1)
+# [1] 0
+```
 
+## Preparing for running TDA Mapper
 Compute cosine similarity and principal and secondary SVD:
 
-``` r
+```{r}
 cosine_sim <- cosine_sim_func(lab_values_mat)
 trunc_svds <- RSpectra::svds(cosine_sim, k = 2, nu = 2, nv = 2)
 svd1 <- - trunc_svds$u[, 1]
@@ -91,32 +116,35 @@ svd2 <- - trunc_svds$u[, 2]
 ```
 
 Check cosine similarity values.
-
-``` r
+```{r}
 hist(apply(cosine_sim, 1, mean))
-```
-
-![](man/figures/unnamed-chunk-10-1.png)<!-- -->
-
-``` r
 hist(apply(cosine_sim, 1, min))
 ```
 
-![](man/figures/unnamed-chunk-10-2.png)<!-- -->
 
-Enrich topology by any variable. Use ‘time’ for now.
-
-``` r
+Enrich topology by any variable.
+Use 'time' for now.
+```{r}
 f_time <- processed_data %>% 
   select(ID = id, val = time) # or val = CRP, etc.
 hist(as.numeric(f_time$val))
 ```
 
-![](man/figures/unnamed-chunk-11-1.png)<!-- -->
+```{r include=FALSE}
+# takes about 70s to run
+# system.time(svd_list <- svd(cosine_sim))
+# SVD1 <- svd_list$u[, 1]
+# SVD2 <- svd_list$u[, 2]
+# hist(SVD1)
+# hist(SVD2)
+# tolerance = 1^(-10)
+# sum(svd2 - SVD2 > tolerance)
+# sum(svd1 - SVD1 > tolerance)
+```
 
-## Run function TDA Mapper
+## Run function TDA Mapper 
 
-``` r
+```{r}
 f_sim_map <- TDAmapper::mapper2D(
   distance_matrix = cosine_sim,
   filter_values = list(svd1 , svd2),
@@ -128,11 +156,14 @@ f_sim_map <- TDAmapper::mapper2D(
 f_graph <- make_graph(f_sim_map, f_time, 'clust_color', my_colors)
 ```
 
-![](man/figures/unnamed-chunk-13-1.png)<!-- -->
+```{r include=FALSE}
+# Check colormap id and f_graph vertex to make sure they match
+# color_map <- color_vertex(f_sim_map, f_time)
+# V(f_graph)
+```
 
 Create a minimum spanning tree (MST).
-
-``` r
+```{r}
 minspantreeweights <- igraph::mst(f_graph, weights = f_graph$clusters$edge.betweenness)
 plot(minspantreeweights)
 legend(
@@ -145,35 +176,18 @@ legend(
 )
 ```
 
-![](man/figures/unnamed-chunk-15-1.png)<!-- -->
-
-### THIS STEP NEED MANUAL REVIEW
-
+### THIS STEP NEED MANUAL REVIEW 
 Check the MST plot and TIME boxplots.
 
 Compute trajectories and assign observations to nodes in network.
-
-``` r
+```{r}
 out_trajectories <- find_trajectories(
   minspantreeweights, processed_data, f_sim_map, f_graph)
-```
-
-    ##                                     trajElmnts clusterTraj
-    ## 1                    3 2 1 7 13 14 15 16 17 18         1>2
-    ## 2                                 4 5 11 12 18           2
-    ## 3                                      6 12 18           2
-    ## 4                              8 9 10 16 17 18         1>2
-    ## 5          20 19 25 31 32 33 34 35 36 30 24 18       3>4>2
-    ## 6       21 27 26 25 31 32 33 34 35 36 30 24 18       3>4>2
-    ## 7 23 22 28 27 26 25 31 32 33 34 35 36 30 24 18     4>3>4>2
-    ## 8    29 28 27 26 25 31 32 33 34 35 36 30 24 18     4>3>4>2
-
-``` r
 similarity_df <- out_trajectories[[1]]
 id_node_cluster <- out_trajectories[[2]]
 ```
 
-``` r
+```{r}
 most_similar_traj <- similarity_df %>%
   group_by(covid_id) %>%
   slice(which.max(JW)) %>% # use Jaccard similarity for now
@@ -187,19 +201,14 @@ most_similar_traj <- similarity_df %>%
 ```
 
 ## Write output
-
-``` r
+```{r}
 data_out <- most_similar_traj %>% select(covid_id, trajNumbManual)
 table(data_out$trajNumbManual)
 ```
 
-    ## 
-    ##       B   G>P>B P>G>P>B     R>B 
-    ##      33     110     310      95
-
 ## Visualizations
 
-``` r
+```{r}
 plot_dat <- processed_data %>% 
   left_join(id_node_cluster %>% distinct(covid_id, id, cluster), 
             by = c('id', 'covid_id'))
@@ -211,11 +220,7 @@ plot_dat %>%
   scale_color_manual(values = f_graph$pal$color) +
   theme(legend.position = "none",
         plot.title = element_text(size = 8, hjust = 0.5))
-```
 
-![](man/figures/unnamed-chunk-19-1.png)<!-- -->
-
-``` r
 plot_dat %>% 
   select(cluster, lab_value_names) %>% 
   pivot_longer(- cluster, names_to = 'Lab', values_to = 'lab_value') %>% 
@@ -226,24 +231,17 @@ plot_dat %>%
   scale_color_manual(values = f_graph$pal$color) +
   theme(legend.position = "none") +
   facet_wrap(~ Lab, scales = 'free_y')
-```
 
-    ## Note: Using an external vector in selections is ambiguous.
-    ## ℹ Use `all_of(lab_value_names)` instead of `lab_value_names` to silence this message.
-    ## ℹ See <https://tidyselect.r-lib.org/reference/faq-external-vector.html>.
-    ## This message is displayed once per session.
-
-![](man/figures/unnamed-chunk-19-2.png)<!-- -->
-
-``` r
 processed_data_traj <- processed_data %>% 
   left_join(most_similar_traj, by = c("covid_id")) %>% 
   mutate(trajNumbManual = as.factor(trajNumbManual), time) %>%
   select(time, trajNumbManual, lab_value_names) %>% 
   distinct()
+
+
 ```
 
-``` r
+```{r fig.width=12, fig.height=8}
 processed_data_traj  %>% 
   pivot_longer(- c(time, trajNumbManual), 
                       names_to = 'Lab', values_to = 'lab_value') %>% 
@@ -254,13 +252,6 @@ processed_data_traj  %>%
   facet_wrap(~ Lab, scales = 'free_y')
 ```
 
-    ## `geom_smooth()` using formula 'y ~ x'
+Please [open an issue](https://github.com/trang1618/tdapseudotime/issues/new) for questions related to **tdapseudotime** usage, bug reports or general inquiries.
 
-![](man/figures/unnamed-chunk-20-1.png)<!-- -->
-
-Please [open an
-issue](https://github.com/trang1618/tdapseudotime/issues/new) for
-questions related to **tdapseudotime** usage, bug reports or general
-inquiries.
-
-Thank you very much for your support\!
+Thank you very much for your support!
